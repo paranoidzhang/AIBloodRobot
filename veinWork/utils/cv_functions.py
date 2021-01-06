@@ -5,49 +5,8 @@ from skimage.filters import threshold_niblack
 from scipy.signal import *
 from scipy.sparse import *
 from skimage.morphology import thin
-
-# 阈值分割参数
-# 1.Niblack模板边长
-sidelength = 49
-# 2.补偿权值
-threk = 0.1
-
-# 去噪参数
-# 1.开运算模板边长
-b_openside = 1
-
-# 2.闭运算模板边长
-b_closedside = 7
-
-# 3.中值滤波模板边长
-b_blurside = 5
-
-# gamma变换参数
-gamma = 4
-
-# 中值滤波参数
-winsize = (5, 5)
-
-blurside = 9
-
-# 灰度放大系数
-threfactor = 4
-
-# 腐蚀参数
-erodeside = 5
-
-# 膨胀参数
-dilateside1 = 9
-dilateside2 = 5
-
-# 1.开运算模板边长
-n_openside = 5
-
-# 2.闭运算模板边长
-n_closedside = 3
-
-# 3.中值滤波模板边长
-n_blurside = 5
+from PIL.Image import open as ImOpen,fromarray,BILINEAR
+import matplotlib.pyplot as plt
 
 
 def gamma_transfer(img, gamma):
@@ -138,15 +97,15 @@ def blood_clear_background(src):
     :param src: 输入图像
     :return: 输出图像
     """
-    img = src[0:src.shape[0], 0:src.shape[1]]  # [高 ，宽]
+    # img = src[0:src.shape[0], 0:src.shape[1]]  # [高 ，宽]
     # blur_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)  # 灰度图
-    height, width = img.shape  # 获取图片宽高
+    height, width = src.shape  # 获取图片宽高
     # 去除黑色背景，seedPoint代表初始种子，进行四次，即对四个角都做一次，可去除最外围的黑边
-    blur_img = cv2.floodFill(img, mask=None, seedPoint=(width - 10, 10), newVal=(255, 255, 255))[1]  # 从右侧漫水填充
-    blur_img = cv2.floodFill(blur_img, mask=None, seedPoint=(10,int(height/2)), newVal=(255, 255, 255))[1] #从左侧漫水填充
-    # blur_img = cv2.floodFill(blur_img, mask=None, seedPoint=(0, height - 1), newVal=(255, 255, 255))[1]  #从左下角漫水填充
-    # blur_img = cv2.floodFill(blur_img, mask=None, seedPoint=(width - 1, height - 1), newVal=(255, 255, 255))[1] #从右下角漫水填充
-    return blur_img
+    blur_img = cv2.floodFill(src, mask=None, seedPoint=(width - 1, 1), newVal=(255, 255, 255))[1]  # 从右侧漫水填充
+    blur_img = cv2.floodFill(src, mask=None, seedPoint=(2,int(height/2)), newVal=(255, 255, 255))[1] #从左侧漫水填充
+    blur_img = cv2.floodFill(src, mask=None, seedPoint=(0, height - 1), newVal=(255, 255, 255))[1]  #从左下角漫水填充
+    blur_img = cv2.floodFill(src, mask=None, seedPoint=(width - 1, height - 1), newVal=(255, 255, 255))[1] #从右下角漫水填充
+    return src
 
 
 
@@ -248,7 +207,7 @@ def get_vein(src):
     return elbowImg
 
 
-def get_contours(img):
+def get_contours(img,size):
     """填充细小孔洞区域（颜色转换为白色）
     :param img:输入图像
     :return:输出图像
@@ -258,7 +217,7 @@ def get_contours(img):
     cv_contours = []
     for contour in contours[1]:
         area = cv2.contourArea(contour)
-        if area <= 2000:
+        if area <= size:
             cv_contours.append(contour)
             # x, y, w, h = cv2.boundingRect(contour)
             # img[y:y + h, x:x + w] = 255
@@ -269,20 +228,28 @@ def get_contours(img):
     return img
 
 
-def get_needle(img):
+def get_needle1(img):
     """获取采血针图像
     :param img: 输入图像
     :return: 输出图像
     """
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, (0, 0, 80), (255, 255, 255))
+    mask = cv2.inRange(hsv, (0, 0, 80), (255, 255, 255))  # (0,0,157)
     mask = cv2.bitwise_not(mask)
     needle1 = cv2.bitwise_and(img, img, mask=mask)
     background = np.zeros(img.shape, img.dtype)
     background[:, :, :] = 255
     mask = cv2.bitwise_not(mask)
     dst = cv2.bitwise_or(needle1, background, mask=mask)
+
     return dst
+
+
+def get_needle2(src):
+    gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
+    blur = cv2.medianBlur(gray, 5)
+    ret2, dst2 = cv2.threshold(blur, 0, 255, cv2.THRESH_OTSU)
+    return dst2
 
 
 def needle_clear_background(src):
@@ -290,17 +257,17 @@ def needle_clear_background(src):
     :param src:
     :return:
     """
-    img = src[2:src.shape[0] - 2, 0:src.shape[1]]  # [高 ，宽]
-    blur_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)  # 灰度图
+    # img = src[2:src.shape[0] - 2, 0:src.shape[1]]  # [高 ，宽]
+    # blur_img = cv2.cvtColor(src, cv2.COLOR_RGB2GRAY)  # 灰度图
 
-    height, width = blur_img.shape  # 获取图片宽高
+    height, width = src.shape  # 获取图片宽高
     # (_, blur_img) = cv2.threshold(gray_img, 127, 255, cv2.THRESH_BINARY)  # 二值化 固定阈值127
 
     # 去除黑色背景，seedPoint代表初始种子，进行四次，即对四个角都做一次，可去除最外围的黑边
-    blur_img = cv2.floodFill(blur_img, mask=None, seedPoint=(width - 3, 3), newVal=(255, 255, 255))[1]  # 从右侧漫水填充
-    blur_img = cv2.floodFill(blur_img, mask=None, seedPoint=(5, 5), newVal=(255, 255, 255))[1]  # 从左侧漫水填充
-    blur_img = cv2.floodFill(blur_img, mask=None, seedPoint=(3, height - 1), newVal=(255, 255, 255))[1]  #从左下角漫水填充
-    # blur_img = cv2.floodFill(blur_img, mask=None, seedPoint=(width - 1, height - 1), newVal=(255, 255, 255))[1] #从右下角漫水填充
+    blur_img = cv2.floodFill(src, mask=None, seedPoint=(width - 3, 3), newVal=(255, 255, 255))[1]  # 从右侧漫水填充
+    blur_img = cv2.floodFill(src, mask=None, seedPoint=(5, 5), newVal=(255, 255, 255))[1]  # 从左侧漫水填充
+    blur_img = cv2.floodFill(src, mask=None, seedPoint=(3, height - 1), newVal=(255, 255, 255))[1]  #从左下角漫水填充
+    blur_img = cv2.floodFill(src, mask=None, seedPoint=(width - 1, height - 1), newVal=(255, 255, 255))[1] #从右下角漫水填充
     return blur_img
 
 
@@ -328,8 +295,8 @@ def get_needle_line(img, src):
         cv2.line(src, (x1, y1), (x2, y2), (0, 0, 255), 2)
 
     # 经验参数
-    minLineLength = 200
-    maxLineGap = 40
+    # minLineLength = 200
+    # maxLineGap = 40
     # lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 29, minLineLength, maxLineGap)
     # for x1, y1, x2, y2 in lines[0]:
     #     cv2.line(img, (x1, y1), (x2, y2), (255, 0, 0), 2)
@@ -377,8 +344,11 @@ def get_needle_point(img):
     :param img: 输入图像
     :return: 输出坐标点
     """
-    # print(img.shape)
+    img_info = img.shape
+    cv2.rectangle(img, (0, 0), (int(img_info[0]*0.3), img_info[1]), (0, 0, 0), 2)
+    cv2.rectangle(img, (img_info[0]-10, 0), (img_info[0], img_info[1]), (0, 0, 0), 2)
     row, col = np.where(img == 255)
+
     return (row[-1], col[-1])
 
 
@@ -442,3 +412,16 @@ def cmp_theta(blood_theta,needle_theta):
     if abs(blood_theta - needle_theta)<3:
         return True
     return False
+
+def pil2np(src):
+    src = np.asarray(src)
+    return src
+
+def np2pil(src):
+    src = fromarray(np.uint8(src))
+    return src
+
+def show_img(src):
+    img = np2pil(src)
+    plt.imshow(img,'gray')
+    plt.show()
