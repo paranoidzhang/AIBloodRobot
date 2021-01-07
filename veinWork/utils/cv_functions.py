@@ -5,7 +5,7 @@ from skimage.filters import threshold_niblack
 from scipy.signal import *
 from scipy.sparse import *
 from skimage.morphology import thin
-from PIL.Image import open as ImOpen,fromarray,BILINEAR
+from PIL.Image import open as ImOpen, fromarray, BILINEAR
 import matplotlib.pyplot as plt
 
 
@@ -102,11 +102,10 @@ def blood_clear_background(src):
     height, width = src.shape  # 获取图片宽高
     # 去除黑色背景，seedPoint代表初始种子，进行四次，即对四个角都做一次，可去除最外围的黑边
     blur_img = cv2.floodFill(src, mask=None, seedPoint=(width - 1, 1), newVal=(255, 255, 255))[1]  # 从右侧漫水填充
-    blur_img = cv2.floodFill(src, mask=None, seedPoint=(2,int(height/2)), newVal=(255, 255, 255))[1] #从左侧漫水填充
-    blur_img = cv2.floodFill(src, mask=None, seedPoint=(0, height - 1), newVal=(255, 255, 255))[1]  #从左下角漫水填充
-    blur_img = cv2.floodFill(src, mask=None, seedPoint=(width - 1, height - 1), newVal=(255, 255, 255))[1] #从右下角漫水填充
+    blur_img = cv2.floodFill(src, mask=None, seedPoint=(2, int(height / 2)), newVal=(255, 255, 255))[1]  # 从左侧漫水填充
+    blur_img = cv2.floodFill(src, mask=None, seedPoint=(0, height - 1), newVal=(255, 255, 255))[1]  # 从左下角漫水填充
+    blur_img = cv2.floodFill(src, mask=None, seedPoint=(width - 1, height - 1), newVal=(255, 255, 255))[1]  # 从右下角漫水填充
     return src
-
 
 
 def direct_valley(img, threfactor):
@@ -157,7 +156,7 @@ def direct_valley(img, threfactor):
     return pix
 
 
-def erode(img,erodeside,dilateside1,dilateside2):
+def erode(img, erodeside, dilateside1, dilateside2):
     """腐蚀操作
     :param img: 输入图像
     :param erodeside: 腐蚀参数
@@ -167,14 +166,14 @@ def erode(img,erodeside,dilateside1,dilateside2):
     """
     # bgr_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
     erodekernel = cv2.getStructuringElement(cv2.MORPH_RECT, (erodeside, erodeside))
-    eroded = cv2.erode(img, erodekernel)    #扩大黑色区域
+    eroded = cv2.erode(img, erodekernel)  # 扩大黑色区域
     dilatekernel1 = cv2.getStructuringElement(cv2.MORPH_RECT, (dilateside1, dilateside1))
     dilated = cv2.dilate(eroded, dilatekernel1)  # 扩大白色区域
     # erode_img = cv2.cvtColor(dilated, cv2.COLOR_BGR2GRAY)
     return dilated
 
 
-def dilate(img,dilateside):
+def dilate(img, dilateside):
     """膨胀操作
     :param img:
     :param dilateside: 膨胀参数
@@ -182,7 +181,7 @@ def dilate(img,dilateside):
     """
     bgr_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
     dilatekernel = cv2.getStructuringElement(cv2.MORPH_RECT, (dilateside, dilateside))
-    dilated = cv2.dilate(bgr_img,dilatekernel)
+    dilated = cv2.dilate(bgr_img, dilatekernel)
     dilate_img = cv2.cvtColor(dilated, cv2.COLOR_BGR2GRAY)
     return dilate
 
@@ -207,25 +206,29 @@ def get_vein(src):
     return elbowImg
 
 
-def get_contours(img,size):
+def get_contours(img, size):
     """填充细小孔洞区域（颜色转换为白色）
     :param img:输入图像
     :return:输出图像
     """
-    contours= cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    xx = img.shape[0]
+    yy = img.shape[1]
+    target = np.zeros((xx+20, yy+20), dtype=np.uint8)
+    target[target == 0] = 255
+    target[10:xx + 10, 10:yy + 10] = img
+    contours = cv2.findContours(target, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     n = len(contours)  # 轮廓的个数
     cv_contours = []
-    for contour in contours[1]:
+    for i in range(len(contours[1])):
+        contour = contours[1][i]
         area = cv2.contourArea(contour)
         if area <= size:
-            cv_contours.append(contour)
-            # x, y, w, h = cv2.boundingRect(contour)
-            # img[y:y + h, x:x + w] = 255
+            # cv_contours.append(contour)
+            cv2.drawContours(target, contours[1], i, 255, -1)
         else:
             continue
-
-    cv2.fillPoly(img, cv_contours, (255, 255, 255))
-    return img
+    target = target[10:xx+10, 10:yy+10]
+    return target
 
 
 def get_needle1(img):
@@ -266,8 +269,8 @@ def needle_clear_background(src):
     # 去除黑色背景，seedPoint代表初始种子，进行四次，即对四个角都做一次，可去除最外围的黑边
     blur_img = cv2.floodFill(src, mask=None, seedPoint=(width - 3, 3), newVal=(255, 255, 255))[1]  # 从右侧漫水填充
     blur_img = cv2.floodFill(src, mask=None, seedPoint=(5, 5), newVal=(255, 255, 255))[1]  # 从左侧漫水填充
-    blur_img = cv2.floodFill(src, mask=None, seedPoint=(3, height - 1), newVal=(255, 255, 255))[1]  #从左下角漫水填充
-    blur_img = cv2.floodFill(src, mask=None, seedPoint=(width - 1, height - 1), newVal=(255, 255, 255))[1] #从右下角漫水填充
+    blur_img = cv2.floodFill(src, mask=None, seedPoint=(3, height - 1), newVal=(255, 255, 255))[1]  # 从左下角漫水填充
+    blur_img = cv2.floodFill(src, mask=None, seedPoint=(width - 1, height - 1), newVal=(255, 255, 255))[1]  # 从右下角漫水填充
     return blur_img
 
 
@@ -345,8 +348,8 @@ def get_needle_point(img):
     :return: 输出坐标点
     """
     img_info = img.shape
-    cv2.rectangle(img, (0, 0), (int(img_info[0]*0.3), img_info[1]), (0, 0, 0), 2)
-    cv2.rectangle(img, (img_info[0]-10, 0), (img_info[0], img_info[1]), (0, 0, 0), 2)
+    cv2.rectangle(img, (0, 0), (int(img_info[0] * 0.3), img_info[1]), (0, 0, 0), 2)
+    cv2.rectangle(img, (img_info[0] - 10, 0), (img_info[0], img_info[1]), (0, 0, 0), 2)
     row, col = np.where(img == 255)
 
     return (row[-1], col[-1])
@@ -363,7 +366,7 @@ def get_line(r_binary, step_theta=2, step_rho=2):
     index = np.where(r_binary == 255)
     rows, cols = r_binary.shape
     l = round(math.sqrt(pow(rows - 1, 2.0) + pow(cols - 1, 2.0))) + 1
-    num_theat = int(180.0/step_theta)
+    num_theat = int(180.0 / step_theta)
     num_rho = int(2 * l / step_rho + 1)
     accumulator = np.zeros((num_rho, num_theat), np.uint8)
     acc_dict = {}
@@ -375,7 +378,7 @@ def get_line(r_binary, step_theta=2, step_rho=2):
         col = index[1][i]
         for m in range(num_theat):
             rho = col * math.cos(step_theta * m / 180.0 * math.pi) + row * math.sin(step_theta * m / 180.0 * math.pi)
-            n = int(round(rho + l)/step_rho)
+            n = int(round(rho + l) / step_rho)
             accumulator[n, m] += 1
             acc_dict[(n, m)].append((row, col))
     location = np.where(accumulator == np.max(accumulator))
@@ -401,7 +404,7 @@ def get_theta(line):
     return theta
 
 
-def cmp_theta(blood_theta,needle_theta):
+def cmp_theta(blood_theta, needle_theta):
     """
     比较两直线的角度，判断是否一致
     :param blood_theta: 血管所在直线的角度
@@ -409,19 +412,57 @@ def cmp_theta(blood_theta,needle_theta):
     :return: 角度一致返回True，否则返回False
     """
     # if blood_theta == needle_theta :
-    if abs(blood_theta - needle_theta)<3:
+    if abs(blood_theta - needle_theta) < 3:
         return True
     return False
+
 
 def pil2np(src):
     src = np.asarray(src)
     return src
 
+
 def np2pil(src):
     src = fromarray(np.uint8(src))
     return src
 
+
 def show_img(src):
     img = np2pil(src)
-    plt.imshow(img,'gray')
+    plt.imshow(img, 'gray')
     plt.show()
+
+
+def get_contours_centre(cnt):
+    M = cv2.moments(cnt)
+    cx = int(M['m10'] / M['m00'])
+    cy = int(M['m01'] / M['m00'])
+    return cx, cy
+
+
+def cal_contours_dis(src, row, col):
+    img = cv2.bitwise_not(src)
+    contours = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # min = 10000
+    index = 0
+    cv_contours = []
+    target = np.zeros((src.shape[0], src.shape[1]), dtype=np.uint8)
+    target[target == 0] = 255
+    for i in range(len(contours[1])):
+        contour = contours[1][i]
+        if cv2.contourArea(contour) < 0.1:
+            continue
+        # x, y = get_contours_centre(contour)
+        # dis = math.sqrt(((x - row) ** 2) + ((y - col) ** 2))
+        # print(f'{i}, {dis}, {cv2.contourArea(contour)}')
+        area = cv2.contourArea(contour)
+        if area <= 2000:
+            # cv_contours.append(contour)
+            index = i
+            cv2.drawContours(target, contours[1], index, 255, -1)
+            # x, y, w, h = cv2.boundingRect(contour)
+            # img[y:y + h, x:x + w] = 255
+        else:
+            continue
+    # cv2.fillPoly(target, cv_contour, (0, 0, 0))
+    return target

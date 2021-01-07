@@ -1,6 +1,7 @@
 import os
 from lcutil.config_util import ConfigUtil as BaseConfig
 
+
 class Config(BaseConfig):
     def __init__(self, d='data', f='config.ini'):
         base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
